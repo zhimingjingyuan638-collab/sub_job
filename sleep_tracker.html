@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🌙 Sleep Tracker - 睡眠記録アプリ</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #080818;
+      --bg2:     #0d0d2b;
+      --card:    #111130;
+      --card2:   #181848;
+      --purple:  #7c3aed;
+      --purple-l:#a78bfa;
+      --blue:    #3b82f6;
+      --teal:    #14b8a6;
+      --gold:    #f59e0b;
+      --green:   #10b981;
+      --red:     #ef4444;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --border:  rgba(255,255,255,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      max-width: 430px;
+      margin: 0 auto;
+      padding-bottom: 84px;
+      position: relative;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      background: var(--bg2);
+      padding: 14px 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .header-title {
+      font-size: 19px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--purple-l), #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-right {
+      font-size: 13px;
+      color: var(--text2);
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    /* ===== BOTTOM NAV ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      background: rgba(13,13,43,0.97);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 200;
+      backdrop-filter: blur(16px);
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 8px 18px;
+      border: none;
+      background: none;
+      color: var(--text2);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn.active { color: var(--purple-l); }
+    .nav-btn .nav-icon { font-size: 24px; }
+
+    /* ===== PAGES ===== */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+
+    /* ===== CLOCK ===== */
+    .clock-wrap {
+      text-align: center;
+      padding: 20px 0 8px;
+    }
+    .clock-time {
+      font-size: 54px;
+      font-weight: 200;
+      letter-spacing: 2px;
+      color: var(--text);
+      font-feature-settings: "tnum";
+      line-height: 1;
+    }
+    .clock-date {
+      font-size: 14px;
+      color: var(--text2);
+      margin-top: 6px;
+      margin-bottom: 18px;
+    }
+
+    /* ===== LIVE TIMER ===== */
+    .live-timer {
+      display: none;
+      text-align: center;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(59,130,246,0.12));
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 14px;
+      margin-bottom: 14px;
+    }
+    .timer-top { font-size: 12px; color: var(--purple-l); margin-bottom: 4px; font-weight: 600; }
+    .timer-val {
+      font-size: 38px;
+      font-weight: 700;
+      color: var(--purple-l);
+      font-feature-settings: "tnum";
+      line-height: 1;
+    }
+    .timer-bot { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .pulsing { animation: pulse 1.8s ease-in-out infinite; }
+
+    /* ===== ACTION BUTTONS ===== */
+    .action-btn {
+      width: 100%;
+      padding: 18px 16px;
+      border-radius: 14px;
+      border: 2px solid;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      letter-spacing: 0.2px;
+    }
+    .action-btn:active { transform: scale(0.97); }
+
+    .btn-bedtime {
+      background: linear-gradient(135deg, #1a1040, #241a60);
+      border-color: var(--purple);
+      color: var(--purple-l);
+    }
+    .btn-bedtime.recorded {
+      background: linear-gradient(135deg, #2d1b69, #3730a3);
+      box-shadow: 0 0 22px rgba(124,58,237,0.35);
+    }
+    .btn-waketime {
+      background: linear-gradient(135deg, #0f1f40, #162645);
+      border-color: var(--blue);
+      color: #93c5fd;
+    }
+    .btn-waketime.recorded {
+      background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+      box-shadow: 0 0 22px rgba(59,130,246,0.35);
+    }
+    .btn-sub-text { font-size: 12px; font-weight: 400; margin-left: auto; color: inherit; opacity: 0.7; }
+
+    .time-recorded {
+      font-size: 13px;
+      color: var(--text2);
+      text-align: center;
+      margin: -4px 0 10px;
+    }
+
+    /* ===== SLEEP DURATION BIG ===== */
+    .sleep-duration {
+      text-align: center;
+      padding: 16px 0 8px;
+    }
+    .sleep-duration-val {
+      font-size: 56px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--purple-l), #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      font-feature-settings: "tnum";
+    }
+    .sleep-duration-label { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+    /* ===== SUB SLEEP BUTTONS ===== */
+    .sub-sleep-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .sub-btn {
+      padding: 14px 12px;
+      border-radius: 13px;
+      border: 2px solid;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.18s;
+      background: var(--card2);
+    }
+    .sub-btn:active { transform: scale(0.97); }
+    .sub-btn-label { font-size: 11px; font-weight: 500; opacity: 0.75; }
+
+    .btn-nap    { border-color: var(--teal); color: #2dd4bf; }
+    .btn-nap.on { background: rgba(20,184,166,0.18); box-shadow: 0 0 16px rgba(20,184,166,0.3); }
+    .btn-ss     { border-color: var(--purple-l); color: var(--purple-l); }
+    .btn-ss.on  { background: rgba(167,139,250,0.18); box-shadow: 0 0 16px rgba(167,139,250,0.3); }
+
+    /* ===== SLEEP ITEMS LIST ===== */
+    .sleep-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      background: var(--card2);
+      border-radius: 10px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .sleep-item-time { font-weight: 600; color: var(--teal); }
+    .sleep-item-del  { background: none; border: none; color: var(--red); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+
+    /* ===== STARS ===== */
+    .stars {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 6px 0 4px;
+    }
+    .star {
+      font-size: 34px;
+      cursor: pointer;
+      opacity: 0.25;
+      transition: opacity 0.12s, transform 0.1s;
+    }
+    .star.on { opacity: 1; }
+    .star:active { transform: scale(1.3); }
+    .quality-label { text-align: center; font-size: 13px; color: var(--text2); min-height: 20px; }
+
+    /* ===== MOOD ===== */
+    .moods {
+      display: flex;
+      justify-content: space-around;
+      margin: 6px 0;
+    }
+    .mood-btn {
+      font-size: 38px;
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      background: none;
+      opacity: 0.4;
+      transition: all 0.18s;
+    }
+    .mood-btn.on {
+      opacity: 1;
+      border-color: var(--purple);
+      background: rgba(124,58,237,0.18);
+      transform: scale(1.15);
+    }
+
+    /* ===== TEXTAREA ===== */
+    .note-input {
+      width: 100%;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      line-height: 1.6;
+    }
+    .note-input:focus { border-color: var(--purple); }
+
+    /* ===== SAVE BUTTON ===== */
+    .save-btn {
+      width: 100%;
+      padding: 19px;
+      background: linear-gradient(135deg, #6d28d9, #4f46e5);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+    .save-btn:active { transform: scale(0.98); opacity: 0.9; }
+
+    /* ===== RECOMMENDATION ===== */
+    .recommendation {
+      display: none;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(59,130,246,0.12));
+      border: 1px solid rgba(124,58,237,0.28);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .rec-title { font-size: 13px; color: var(--purple-l); margin-bottom: 8px; font-weight: 700; }
+    .rec-body  { font-size: 14px; color: var(--text); line-height: 1.7; }
+
+    /* ===== STATS PAGE ===== */
+    .period-toggle {
+      display: flex;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .period-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .period-btn.active { background: var(--purple); color: white; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 15px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .stat-val   { font-size: 26px; font-weight: 800; color: var(--purple-l); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text2); margin-top: 5px; line-height: 1.3; }
+
+    .chart-wrap { position: relative; height: 190px; margin: 12px 0 4px; }
+
+    /* ===== DEBT ===== */
+    .debt-center { text-align: center; padding: 10px 0; }
+    .debt-val    { font-size: 40px; font-weight: 900; line-height: 1; }
+    .debt-over   { color: var(--red); }
+    .debt-ok     { color: var(--green); }
+    .debt-sub    { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+    .prog-bar { background: var(--card2); border-radius: 8px; height: 7px; margin: 10px 0 4px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 8px; transition: width 0.5s; }
+
+    /* ===== RECORD LIST ===== */
+    .rec-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .rec-row:last-child { border-bottom: none; }
+    .rec-date  { color: var(--text2); min-width: 90px; }
+    .rec-sleep { font-size: 17px; font-weight: 800; color: var(--purple-l); }
+    .rec-extra { text-align: right; }
+
+    /* ===== SCORE PAGE ===== */
+    .score-big {
+      text-align: center;
+      padding: 16px 0;
+    }
+    .score-num {
+      font-size: 80px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .score-label { font-size: 17px; color: var(--text2); margin-top: 8px; font-weight: 600; }
+    .score-good  { color: var(--green); }
+    .score-ok    { color: var(--gold); }
+    .score-bad   { color: var(--red); }
+
+    .sum-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .sum-row:last-child { border-bottom: none; }
+    .sum-key { color: var(--text2); }
+    .sum-val { font-weight: 700; }
+
+    .streak-wrap { display: flex; align-items: center; gap: 14px; }
+    .streak-fire  { font-size: 44px; }
+    .streak-count { font-size: 54px; font-weight: 900; color: var(--gold); line-height: 1; }
+    .streak-sub   { font-size: 14px; color: var(--text2); margin-top: 3px; }
+
+    .tip-item {
+      padding: 11px 14px;
+      background: var(--card2);
+      border-radius: 11px;
+      margin-bottom: 9px;
+      font-size: 14px;
+      line-height: 1.7;
+      border-left: 3px solid var(--purple);
+    }
+
+    /* ===== SETTINGS ===== */
+    .set-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+    .set-row:last-child { border-bottom: none; }
+    .set-key { line-height: 1.4; }
+    .set-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .set-val  { color: var(--purple-l); font-weight: 700; }
+
+    .set-input {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 11px;
+      color: var(--text);
+      font-size: 15px;
+      text-align: center;
+      outline: none;
+      min-width: 64px;
+    }
+    .set-input:focus { border-color: var(--purple); }
+    input[type="time"] { -webkit-appearance: none; }
+
+    .exp-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 9px;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .exp-btn:active { opacity: 0.75; }
+    .exp-btn.danger { color: var(--red); border-color: var(--red); }
+
+    /* ===== TOAST ===== */
+    .toast {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      background: var(--green);
+      color: white;
+      padding: 11px 22px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.28s cubic-bezier(.34,1.3,.64,1);
+      z-index: 999;
+      white-space: nowrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== MOON FLOAT ===== */
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+    .moon { display: inline-block; animation: float 3.5s ease-in-out infinite; }
+
+    /* ===== SCORE RING ===== */
+    .score-ring-wrap { display: flex; justify-content: center; padding: 8px 0; }
+    canvas.score-ring { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast" class="toast">保存完了！</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-title"><span class="moon">🌙</span> Sleep Tracker</div>
+  <div id="hdrDate" class="header-right"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PAGE: TODAY                                                  -->
+<!-- ============================================================ -->
+<div id="page-today" class="page active">
+
+  <div class="clock-wrap">
+    <div id="clockTime" class="clock-time">00:00:00</div>
+    <div id="clockDate" class="clock-date"></div>
+  </div>
+
+  <!-- Live sleep timer -->
+  <div id="liveTimer" class="live-timer">
+    <div class="timer-top pulsing">⏱ 睡眠中...</div>
+    <div id="timerVal" class="timer-val">0:00:00</div>
+    <div class="timer-bot">経過時間</div>
+  </div>
+
+  <!-- Main record card -->
+  <div class="card">
+    <div class="card-title">😴 睡眠記録</div>
+
+    <button id="btnBed" class="action-btn btn-bedtime" onclick="recordBedtime()">
+      <span>🌙</span>
+      <span id="btnBedTxt">就寝時刻を記録</span>
+      <span id="btnBedSub" class="btn-sub-text"></span>
+    </button>
+    <div id="bedDisplay" class="time-recorded" style="display:none"></div>
+
+    <button id="btnWake" class="action-btn btn-waketime" onclick="recordWaketime()">
+      <span>☀️</span>
+      <span id="btnWakeTxt">起床時刻を記録</span>
+      <span id="btnWakeSub" class="btn-sub-text"></span>
+    </button>
+    <div id="wakeDisplay" class="time-recorded" style="display:none"></div>
+
+    <div id="durDisplay" class="sleep-duration" style="display:none">
+      <div id="durVal" class="sleep-duration-val">0:00</div>
+      <div class="sleep-duration-label">合計睡眠時間</div>
+    </div>
+  </div>
+
+  <!-- Nap / Second sleep -->
+  <div class="card">
+    <div class="card-title">💤 昼寝・二度寝</div>
+    <div class="sub-sleep-grid">
+      <button id="btnNap" class="sub-btn btn-nap" onclick="toggleNap()">
+        <span style="font-size:26px;">💤</span>
+        <span>昼寝</span>
+        <span id="napBtnLbl" class="sub-btn-label">タップして開始</span>
+      </button>
+      <button id="btnSS" class="sub-btn btn-ss" onclick="toggleSecondSleep()">
+        <span style="font-size:26px;">😪</span>
+        <span>二度寝</span>
+        <span id="ssBtnLbl" class="sub-btn-label">タップして開始</span>
+      </button>
+    </div>
+    <div id="napList"></div>
+    <div id="ssList"></div>
+  </div>
+
+  <!-- Quality -->
+  <div class="card">
+    <div class="card-title">⭐ 睡眠の質</div>
+    <div class="stars">
+      <span class="star" onclick="setQuality(1)">⭐</span>
+      <span class="star" onclick="setQuality(2)">⭐</span>
+      <span class="star" onclick="setQuality(3)">⭐</span>
+      <span class="star" onclick="setQuality(4)">⭐</span>
+      <span class="star" onclick="setQuality(5)">⭐</span>
+    </div>
+    <div id="qualityLbl" class="quality-label"></div>
+  </div>
+
+  <!-- Mood -->
+  <div class="card">
+    <div class="card-title">😊 起床時の気分</div>
+    <div class="moods">
+      <button class="mood-btn" data-mood="terrible" onclick="setMood('terrible')">😩</button>
+      <button class="mood-btn" data-mood="bad"      onclick="setMood('bad')">😕</button>
+      <button class="mood-btn" data-mood="okay"     onclick="setMood('okay')">😐</button>
+      <button class="mood-btn" data-mood="good"     onclick="setMood('good')">😊</button>
+      <button class="mood-btn" data-mood="great"    onclick="setMood('great')">🤩</button>
+    </div>
+  </div>
+
+  <!-- Note -->
+  <div class="card">
+    <div class="card-title">📝 メモ</div>
+    <textarea id="noteInput" class="note-input" rows="3" placeholder="今日の睡眠についてメモ（夢、目覚め具合など）"></textarea>
+  </div>
+
+  <button class="save-btn" onclick="saveRecord()">💾 今日の記録を保存する</button>
+
+  <!-- Recommendation -->
+  <div id="recommendation" class="recommendation">
+    <div class="rec-title">💡 本日のアドバイス</div>
+    <div id="recBody" class="rec-body"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- PAGE: STATS                                                  -->
+<!-- ============================================================ -->
+<div id="page-stats" class="page">
+
+  <div class="period-toggle">
+    <button class="period-btn active" onclick="setPeriod('week', this)">📅 週間（7日）</button>
+    <button class="period-btn"        onclick="setPeriod('month', this)">📆 月間（30日）</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div id="stAvgSleep" class="stat-val">-</div>
+      <div class="stat-label">平均睡眠時間</div>
+    </div>
+    <div class="stat-card">
+      <div id="stAvgScore" class="stat-val">-</div>
+      <div class="stat-label">平均スコア</div>
+    </div>
+    <div class="stat-card">
+      <div id="stBest" class="stat-val">-</div>
+      <div class="stat-label">最長睡眠</div>
+    </div>
+    <div class="stat-card">
+      <div id="stGoalDays" class="stat-val">-</div>
+      <div class="stat-label">目標達成日</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🌙 睡眠時間グラフ</div>
+    <div class="chart-wrap"><canvas id="chartSleep"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⏰ 就寝・起床時刻の推移</div>
+    <div class="chart-wrap"><canvas id="chartTime"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 睡眠負債（累計）</div>
+    <div class="debt-center">
+      <div id="debtVal" class="debt-val">-</div>
+      <div id="debtSub" class="debt-sub"></div>
+    </div>
+    <div class="prog-bar"><div id="debtProg" class="prog-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 記録一覧</div>
+    <div id="recList"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- PAGE: SCORE                                                  -->
+<!-- ============================================================ -->
+<div id="page-score" class="page">
+
+  <div class="card">
+    <div class="card-title">🏆 本日の睡眠スコア</div>
+    <div class="score-big">
+      <div id="scoreNum" class="score-num score-good">--</div>
+      <div id="scoreLbl" class="score-label">記録を保存するとスコアが表示されます</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 スコア内訳</div>
+    <div id="scoreBreak"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔥 継続記録</div>
+    <div class="streak-wrap">
+      <div class="streak-fire">🔥</div>
+      <div>
+        <div id="streakNum" class="streak-count">0</div>
+        <div class="streak-sub">日連続で記録中</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⭐ 睡眠の質（週間トレンド）</div>
+    <div class="chart-wrap"><canvas id="chartQuality"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💡 睡眠改善のヒント</div>
+    <div id="tipsWrap"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- PAGE: SETTINGS                                               -->
+<!-- ============================================================ -->
+<div id="page-settings" class="page">
+
+  <div class="card">
+    <div class="card-title">⚙️ 目標設定</div>
+    <div class="set-row">
+      <div class="set-key">
+        目標睡眠時間
+        <div class="set-sub">推奨：7〜9時間</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <input type="number" id="setHours" class="set-input" min="4" max="12" step="0.5" value="7" onchange="saveSettings()">
+        <span style="color:var(--text2);font-size:14px;">時間</span>
+      </div>
+    </div>
+    <div class="set-row">
+      <div class="set-key">目標就寝時刻</div>
+      <input type="time" id="setBedtime" class="set-input" value="23:00" onchange="saveSettings()">
+    </div>
+    <div class="set-row">
+      <div class="set-key">目標起床時刻</div>
+      <input type="time" id="setWaketime" class="set-input" value="06:30" onchange="saveSettings()">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📁 データ管理</div>
+    <button class="exp-btn" onclick="exportCSV()">📊 CSVでエクスポート</button>
+    <button class="exp-btn" onclick="exportJSON()">💾 JSONバックアップを保存</button>
+    <button class="exp-btn" onclick="triggerImport()">📥 JSONバックアップをインポート</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+  </div>
+
+  <div class="card">
+    <div class="card-title">ℹ️ アプリ情報</div>
+    <div class="set-row">
+      <span class="set-key">バージョン</span>
+      <span class="set-val">1.0.0</span>
+    </div>
+    <div class="set-row">
+      <span class="set-key">総記録日数</span>
+      <span id="infoDays" class="set-val">0日</span>
+    </div>
+    <div class="set-row">
+      <span class="set-key">最初の記録</span>
+      <span id="infoFirst" class="set-val">-</span>
+    </div>
+    <div class="set-row" style="border:none">
+      <span class="set-key">総睡眠時間</span>
+      <span id="infoTotal" class="set-val">-</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--red)">⚠️ 危険ゾーン</div>
+    <button class="exp-btn danger" onclick="resetAllData()">🗑️ すべてのデータを削除</button>
+  </div>
+
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="showPage('today', this)">
+    <span class="nav-icon">🌙</span>今日
+  </button>
+  <button class="nav-btn" onclick="showPage('stats', this)">
+    <span class="nav-icon">📊</span>統計
+  </button>
+  <button class="nav-btn" onclick="showPage('score', this)">
+    <span class="nav-icon">🏆</span>スコア
+  </button>
+  <button class="nav-btn" onclick="showPage('settings', this)">
+    <span class="nav-icon">⚙️</span>設定
+  </button>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT                                                   -->
+<!-- ============================================================ -->
+<script>
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+const S = {
+  bedtime:  null,   // Date
+  waketime: null,   // Date
+  napStart: null,   // Date | null  (in progress)
+  ssStart:  null,   // Date | null  (second sleep in progress)
+  naps:     [],
+  secondSleeps: [],
+  quality:  null,
+  mood:     null,
+  period:   'week',
+};
+
+let settings = {
+  targetHours:   7,
+  targetBedtime: '23:00',
+  targetWaketime:'06:30',
+};
+
+let records = {};  // { 'YYYY-MM-DD': {...} }
+
+// Chart instances
+let chartSleep = null, chartTime = null, chartQuality = null;
+
+// ──────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────
+function init() {
+  loadRecords();
+  loadSettings();
+  loadDraft();
+  updateClock();
+  setInterval(updateClock, 1000);
+  updateHeaderDate();
+  refreshScorePage();
+  refreshSettingsInfo();
+}
+
+// ──────────────────────────────────────────────
+// CLOCK
+// ──────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const hh = pad(now.getHours()), mm = pad(now.getMinutes()), ss = pad(now.getSeconds());
+
+  setText('clockTime', `${hh}:${mm}:${ss}`);
+
+  const WD = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+  const MO = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  setText('clockDate',
+    `${now.getFullYear()}年${MO[now.getMonth()]}月${now.getDate()}日（${WD[now.getDay()]}）`);
+
+  // live timer
+  if (S.bedtime && !S.waketime) {
+    document.getElementById('liveTimer').style.display = 'block';
+    const sec = Math.floor((now - S.bedtime) / 1000);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    setText('timerVal', `${h}:${pad(m)}:${pad(s)}`);
+  } else {
+    document.getElementById('liveTimer').style.display = 'none';
+  }
+}
+
+function updateHeaderDate() {
+  const now = new Date();
+  const WD = ['日','月','火','水','木','金','土'];
+  document.getElementById('hdrDate').innerHTML =
+    `${now.getMonth()+1}月${now.getDate()}日<br>${WD[now.getDay()]}曜日`;
+}
+
+// ──────────────────────────────────────────────
+// STORAGE
+// ──────────────────────────────────────────────
+const K_REC  = 'slt_records';
+const K_SET  = 'slt_settings';
+const K_DRAFT= 'slt_draft';
+
+function loadRecords()  { records  = tryParse(localStorage.getItem(K_REC))  || {}; }
+function saveRecords()  { localStorage.setItem(K_REC, JSON.stringify(records)); }
+function loadSettings() {
+  const s = tryParse(localStorage.getItem(K_SET));
+  if (s) settings = s;
+  document.getElementById('setHours').value   = settings.targetHours;
+  document.getElementById('setBedtime').value  = settings.targetBedtime;
+  document.getElementById('setWaketime').value = settings.targetWaketime;
+}
+function saveSettings() {
+  settings.targetHours    = parseFloat(document.getElementById('setHours').value)   || 7;
+  settings.targetBedtime  = document.getElementById('setBedtime').value;
+  settings.targetWaketime = document.getElementById('setWaketime').value;
+  localStorage.setItem(K_SET, JSON.stringify(settings));
+  toast('設定を保存しました ✅');
+}
+
+function loadDraft() {
+  const d = tryParse(localStorage.getItem(K_DRAFT));
+  if (!d || d.date !== todayKey()) return;
+  S.bedtime      = d.bedtime      ? new Date(d.bedtime)  : null;
+  S.waketime     = d.waketime     ? new Date(d.waketime) : null;
+  S.naps         = d.naps         || [];
+  S.secondSleeps = d.secondSleeps || [];
+  S.quality      = d.quality      || null;
+  S.mood         = d.mood         || null;
+  document.getElementById('noteInput').value = d.note || '';
+  restoreTodayUI();
+}
+function saveDraft() {
+  localStorage.setItem(K_DRAFT, JSON.stringify({
+    date:         todayKey(),
+    bedtime:      S.bedtime  ? S.bedtime.toISOString()  : null,
+    waketime:     S.waketime ? S.waketime.toISOString() : null,
+    naps:         S.naps,
+    secondSleeps: S.secondSleeps,
+    quality:      S.quality,
+    mood:         S.mood,
+    note:         document.getElementById('noteInput').value,
+  }));
+}
+
+// ──────────────────────────────────────────────
+// DATE UTILS
+// ──────────────────────────────────────────────
+function todayKey() {
+  const n = new Date();
+  return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+function fmtTime(dt) {
+  if (!dt) return '-';
+  const d = new Date(dt);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtDur(min, short=false) {
+  if (min === null || min === undefined || isNaN(min)) return '-';
+  const h = Math.floor(min/60), m = Math.round(min%60);
+  return short ? `${h}:${pad(m)}` : `${h}時間${m}分`;
+}
+function minsBetween(a, b) {
+  if (!a || !b) return null;
+  let d = (new Date(b) - new Date(a)) / 60000;
+  if (d < 0) d += 1440;  // cross midnight
+  return d;
+}
+function getDateRange(period) {
+  const days = period === 'week' ? 7 : 30;
+  const arr = [];
+  const now = new Date();
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    arr.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);
+  }
+  return arr;
+}
+function shortDate(key) {
+  const [y,m,d] = key.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const WD = ['日','月','火','水','木','金','土'];
+  return `${m}/${d}(${WD[dt.getDay()]})`;
+}
+function tryParse(s) { try { return JSON.parse(s); } catch { return null; } }
+function setText(id, txt) { const el = document.getElementById(id); if(el) el.textContent = txt; }
+
+// ──────────────────────────────────────────────
+// RECORD: BEDTIME
+// ──────────────────────────────────────────────
+function recordBedtime() {
+  if (S.bedtime) {
+    if (!confirm('就寝時刻をリセットして再記録しますか？')) return;
+    S.bedtime = null;
+    S.waketime = null;
+    document.getElementById('btnBed').classList.remove('recorded');
+    document.getElementById('btnWake').classList.remove('recorded');
+    document.getElementById('bedDisplay').style.display = 'none';
+    document.getElementById('wakeDisplay').style.display = 'none';
+    document.getElementById('durDisplay').style.display = 'none';
+    setText('btnBedTxt', '就寝時刻を記録');
+    setText('btnWakeTxt', '起床時刻を記録');
+    setText('btnBedSub', '');
+    setText('btnWakeSub', '');
+    saveDraft();
+    return;
+  }
+  S.bedtime = new Date();
+  document.getElementById('btnBed').classList.add('recorded');
+  setText('btnBedTxt', '就寝済み');
+  setText('btnBedSub', `（${fmtTime(S.bedtime)}）`);
+  const d = document.getElementById('bedDisplay');
+  d.textContent = `🌙 就寝: ${fmtTime(S.bedtime)}`;
+  d.style.display = 'block';
+  saveDraft();
+  toast(`就寝時刻 ${fmtTime(S.bedtime)} を記録しました 🌙`);
+}
+
+// ──────────────────────────────────────────────
+// RECORD: WAKETIME
+// ──────────────────────────────────────────────
+function recordWaketime() {
+  if (!S.bedtime) { toast('先に就寝時刻を記録してください ⚠️', 'warning'); return; }
+  if (S.waketime) {
+    if (!confirm('起床時刻をリセットして再記録しますか？')) return;
+    S.waketime = null;
+    document.getElementById('btnWake').classList.remove('recorded');
+    document.getElementById('wakeDisplay').style.display = 'none';
+    document.getElementById('durDisplay').style.display = 'none';
+    document.getElementById('recommendation').style.display = 'none';
+    setText('btnWakeTxt', '起床時刻を記録');
+    setText('btnWakeSub', '');
+    saveDraft();
+    return;
+  }
+  S.waketime = new Date();
+  document.getElementById('btnWake').classList.add('recorded');
+  setText('btnWakeTxt', '起床済み');
+  setText('btnWakeSub', `（${fmtTime(S.waketime)}）`);
+  const d = document.getElementById('wakeDisplay');
+  d.textContent = `☀️ 起床: ${fmtTime(S.waketime)}`;
+  d.style.display = 'block';
+  updateDurationDisplay();
+  saveDraft();
+  showRecommendation();
+  toast(`起床時刻 ${fmtTime(S.waketime)} を記録しました ☀️`);
+}
+
+function updateDurationDisplay() {
+  const mins = minsBetween(S.bedtime, S.waketime);
+  if (mins === null) return;
+  document.getElementById('durDisplay').style.display = 'block';
+  setText('durVal', fmtDur(mins, true));
+}
+
+// ──────────────────────────────────────────────
+// NAPS & SECOND SLEEP
+// ──────────────────────────────────────────────
+function toggleNap() {
+  const btn = document.getElementById('btnNap');
+  if (!S.napStart) {
+    S.napStart = new Date();
+    btn.classList.add('on');
+    setText('napBtnLbl', 'タップして停止');
+    toast('昼寝を開始しました 💤');
+  } else {
+    const dur = minsBetween(S.napStart, new Date());
+    S.naps.push({ start: S.napStart.toISOString(), end: new Date().toISOString(), duration: Math.round(dur) });
+    S.napStart = null;
+    btn.classList.remove('on');
+    setText('napBtnLbl', 'タップして開始');
+    renderNapList();
+    saveDraft();
+    toast(`昼寝 ${Math.round(dur)}分 を記録しました`);
+  }
+}
+
+function toggleSecondSleep() {
+  const btn = document.getElementById('btnSS');
+  if (!S.ssStart) {
+    S.ssStart = new Date();
+    btn.classList.add('on');
+    setText('ssBtnLbl', 'タップして停止');
+    toast('二度寝を開始しました 😪');
+  } else {
+    const dur = minsBetween(S.ssStart, new Date());
+    S.secondSleeps.push({ start: S.ssStart.toISOString(), end: new Date().toISOString(), duration: Math.round(dur) });
+    S.ssStart = null;
+    btn.classList.remove('on');
+    setText('ssBtnLbl', 'タップして開始');
+    renderSSList();
+    saveDraft();
+    toast(`二度寝 ${Math.round(dur)}分 を記録しました`);
+  }
+}
+
+function renderNapList() {
+  document.getElementById('napList').innerHTML = S.naps.map((n,i) => `
+    <div class="sleep-item">
+      <span>💤 昼寝 #${i+1}</span>
+      <span class="sleep-item-time">${fmtTime(n.start)}〜${fmtTime(n.end)}（${n.duration}分）</span>
+      <button class="sleep-item-del" onclick="deleteNap(${i})">✕</button>
+    </div>`).join('');
+}
+function renderSSList() {
+  document.getElementById('ssList').innerHTML = S.secondSleeps.map((s,i) => `
+    <div class="sleep-item" style="--teal:var(--purple-l)">
+      <span>😪 二度寝 #${i+1}</span>
+      <span class="sleep-item-time" style="color:var(--purple-l)">${fmtTime(s.start)}〜${fmtTime(s.end)}（${s.duration}分）</span>
+      <button class="sleep-item-del" onclick="deleteSS(${i})">✕</button>
+    </div>`).join('');
+}
+function deleteNap(i) { S.naps.splice(i,1); renderNapList(); saveDraft(); }
+function deleteSS(i)  { S.secondSleeps.splice(i,1); renderSSList(); saveDraft(); }
+
+// ──────────────────────────────────────────────
+// QUALITY & MOOD
+// ──────────────────────────────────────────────
+function setQuality(q) {
+  S.quality = q;
+  document.querySelectorAll('.star').forEach((s,i) => s.classList.toggle('on', i < q));
+  const lbs = ['','ひどい 😩','悪い 😕','普通 😐','良い 😊','最高 🤩'];
+  setText('qualityLbl', lbs[q]);
+  saveDraft();
+}
+
+function setMood(mood) {
+  S.mood = mood;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('on', b.dataset.mood === mood));
+  saveDraft();
+}
+
+// ──────────────────────────────────────────────
+// SCORE CALCULATION
+// ──────────────────────────────────────────────
+function calcScore(rec) {
+  let score = 100;
+  const notes = [];
+
+  // Duration (up to ±40 pts)
+  if (rec.sleepDuration !== null && rec.sleepDuration !== undefined) {
+    const target = settings.targetHours * 60;
+    const diff   = rec.sleepDuration - target;
+    if (diff < -60)    { const d = Math.min(40, Math.abs(diff)/target*40); score -= d; notes.push(`睡眠不足（${Math.abs(Math.round(diff))}分不足）`); }
+    else if (diff > 90){ const d = Math.min(15, (diff-90)/target*15);     score -= d; notes.push('睡眠過剰気味'); }
+  } else { score -= 40; notes.push('睡眠時間が未記録'); }
+
+  // Quality (up to 30 pts)
+  if (rec.quality) {
+    const deduct = (5 - rec.quality) / 5 * 30;
+    score -= deduct;
+    if (rec.quality <= 2) notes.push('睡眠の質が低い');
+  } else { score -= 15; }
+
+  // Bedtime regularity (up to 30 pts)
+  if (rec.bedtime) {
+    const [th,tm] = settings.targetBedtime.split(':').map(Number);
+    const dt = new Date(rec.bedtime);
+    let ah = dt.getHours() + dt.getMinutes()/60;
+    let tgt = th + tm/60;
+    // normalize so both are on same 24-hr axis starting at noon
+    if (ah < 12) ah += 24;
+    if (tgt < 12) tgt += 24;
+    const diffMin = Math.abs((ah - tgt) * 60);
+    const deduct  = Math.min(30, diffMin / 3);
+    score -= deduct;
+    if (diffMin > 60) notes.push(`就寝時刻が目標より${Math.round(diffMin)}分ズレ`);
+  } else { score -= 30; notes.push('就寝時刻が未記録'); }
+
+  return { score: Math.max(0, Math.min(100, Math.round(score))), notes };
+}
+
+// ──────────────────────────────────────────────
+// SAVE RECORD
+// ──────────────────────────────────────────────
+function saveRecord() {
+  if (!S.bedtime && !S.waketime) {
+    toast('就寝か起床時刻を先に記録してください ⚠️', 'warning');
+    return;
+  }
+  const dur     = minsBetween(S.bedtime, S.waketime);
+  const napTot  = S.naps.reduce((a,n) => a + n.duration, 0);
+  const ssTot   = S.secondSleeps.reduce((a,s) => a + s.duration, 0);
+
+  const rec = {
+    date:             todayKey(),
+    bedtime:          S.bedtime  ? S.bedtime.toISOString()  : null,
+    waketime:         S.waketime ? S.waketime.toISOString() : null,
+    sleepDuration:    dur,
+    naps:             S.naps,
+    napTotal:         napTot,
+    secondSleeps:     S.secondSleeps,
+    secondSleepTotal: ssTot,
+    quality:          S.quality,
+    mood:             S.mood,
+    note:             document.getElementById('noteInput').value,
+    savedAt:          new Date().toISOString(),
+  };
+
+  const { score, notes } = calcScore(rec);
+  rec.score      = score;
+  rec.scoreNotes = notes;
+
+  records[todayKey()] = rec;
+  saveRecords();
+  localStorage.removeItem(K_DRAFT);
+
+  toast('記録を保存しました！💾');
+  refreshScorePage();
+  refreshSettingsInfo();
+}
+
+// ──────────────────────────────────────────────
+// RECOMMENDATION
+// ──────────────────────────────────────────────
+function showRecommendation() {
+  if (!S.bedtime || !S.waketime) return;
+  const mins   = minsBetween(S.bedtime, S.waketime);
+  const target = settings.targetHours * 60;
+  const diff   = mins - target;
+
+  let msg = '';
+  if (diff < -60)
+    msg = `😴 今日の睡眠は ${fmtDur(mins)} でした。目標より ${fmtDur(Math.abs(diff))} 不足しています。今夜は少し早めに就寝しましょう。`;
+  else if (diff > 90)
+    msg = `💤 今日は ${fmtDur(mins)} 眠りました。少し長めですが問題ありません。日中の活動量が睡眠に影響することもあります。`;
+  else
+    msg = `✅ 今日の睡眠は ${fmtDur(mins)} です。目標にほぼ達しています。この調子を維持しましょう！`;
+
+  // ideal bedtime for tomorrow
+  const ideal = new Date(S.waketime);
+  ideal.setTime(ideal.getTime() - settings.targetHours * 3600000);
+  msg += `　明日の理想的な就寝時刻は ${fmtTime(ideal)} 頃です。`;
+
+  document.getElementById('recBody').textContent = msg;
+  document.getElementById('recommendation').style.display = 'block';
+}
+
+// ──────────────────────────────────────────────
+// RESTORE TODAY UI (after loading draft)
+// ──────────────────────────────────────────────
+function restoreTodayUI() {
+  if (S.bedtime) {
+    document.getElementById('btnBed').classList.add('recorded');
+    setText('btnBedTxt', '就寝済み');
+    setText('btnBedSub', `（${fmtTime(S.bedtime)}）`);
+    document.getElementById('bedDisplay').textContent = `🌙 就寝: ${fmtTime(S.bedtime)}`;
+    document.getElementById('bedDisplay').style.display = 'block';
+  }
+  if (S.waketime) {
+    document.getElementById('btnWake').classList.add('recorded');
+    setText('btnWakeTxt', '起床済み');
+    setText('btnWakeSub', `（${fmtTime(S.waketime)}）`);
+    document.getElementById('wakeDisplay').textContent = `☀️ 起床: ${fmtTime(S.waketime)}`;
+    document.getElementById('wakeDisplay').style.display = 'block';
+    updateDurationDisplay();
+    showRecommendation();
+  }
+  if (S.quality) setQuality(S.quality);
+  if (S.mood)    setMood(S.mood);
+  renderNapList();
+  renderSSList();
+}
+
+// ──────────────────────────────────────────────
+// STATS PAGE
+// ──────────────────────────────────────────────
+function setPeriod(period, btn) {
+  S.period = period;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshStats();
+}
+
+function refreshStats() {
+  const dates = getDateRange(S.period);
+  const data  = dates.map(d => records[d] || null);
+  const valid = data.filter(d => d && d.sleepDuration !== null);
+
+  const avgSleep = valid.length ? valid.reduce((a,d) => a + d.sleepDuration, 0) / valid.length : null;
+  const avgScore = valid.length ? valid.reduce((a,d) => a + (d.score||0), 0) / valid.length    : null;
+  const bestSleep= valid.length ? Math.max(...valid.map(d => d.sleepDuration))                  : null;
+  const goalDays = valid.filter(d => d.sleepDuration >= settings.targetHours*60 - 30).length;
+
+  setText('stAvgSleep', avgSleep ? fmtDur(avgSleep, true) : '-');
+  setText('stAvgScore',  avgScore ? Math.round(avgScore)  : '-');
+  setText('stBest',      bestSleep? fmtDur(bestSleep,true): '-');
+  setText('stGoalDays',  valid.length ? `${goalDays}/${valid.length}` : '-');
+
+  const labels    = dates.map(d => { const p = d.split('-'); return `${+p[1]}/${+p[2]}`; });
+  const sleepHrs  = data.map(d => d && d.sleepDuration ? +(d.sleepDuration/60).toFixed(2) : 0);
+  const targetArr = dates.map(() => settings.targetHours);
+
+  // Sleep duration bar chart
+  if (chartSleep) chartSleep.destroy();
+  chartSleep = new Chart(document.getElementById('chartSleep').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '睡眠時間(h)',
+          data:  sleepHrs,
+          backgroundColor: sleepHrs.map(v => v >= settings.targetHours - 0.5
+            ? 'rgba(124,58,237,0.8)' : 'rgba(239,68,68,0.65)'),
+          borderRadius: 6,
+          borderSkipped: false,
+        },
+        {
+          label: '目標',
+          data:  targetArr,
+          type:  'line',
+          borderColor: 'rgba(245,158,11,0.85)',
+          borderWidth: 2,
+          borderDash:  [5,4],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: chartOpts({ yLabel:'時間', yMax:12 })
+  });
+
+  // Bedtime/Waketime line chart
+  function toH(isoStr, isWake) {
+    if (!isoStr) return null;
+    const dt = new Date(isoStr);
+    let h = dt.getHours() + dt.getMinutes()/60;
+    // plot on a 12-36h axis so night-time values stay high
+    if (h < 12) h += 24;
+    return +h.toFixed(2);
+  }
+  const bedData  = data.map(d => d ? toH(d.bedtime)  : null);
+  const wakeData = data.map(d => d ? toH(d.waketime) : null);
+
+  if (chartTime) chartTime.destroy();
+  chartTime = new Chart(document.getElementById('chartTime').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'就寝', data:bedData,  borderColor:'rgba(167,139,250,0.9)', backgroundColor:'rgba(167,139,250,0.08)', borderWidth:2, pointRadius:4, pointBackgroundColor:'rgba(167,139,250,0.9)', fill:false, spanGaps:true, tension:0.35 },
+        { label:'起床', data:wakeData, borderColor:'rgba(96,165,250,0.9)',  backgroundColor:'rgba(96,165,250,0.08)',  borderWidth:2, pointRadius:4, pointBackgroundColor:'rgba(96,165,250,0.9)',  fill:false, spanGaps:true, tension:0.35 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{ labels:{ color:'#94a3b8', font:{size:11} } },
+        tooltip:{ callbacks:{ label: ctx => {
+          if (ctx.raw === null) return '未記録';
+          let h = ctx.raw; if (h >= 24) h -= 24;
+          return `${ctx.dataset.label}: ${pad(Math.floor(h))}:${pad(Math.round((h%1)*60))}`;
+        }}}
+      },
+      scales:{
+        x:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(255,255,255,0.05)'} },
+        y:{ ticks:{ color:'#94a3b8', font:{size:10},
+              callback:v=>{ let h=v; if(h>=24)h-=24; return `${pad(Math.floor(h))}:00`; }
+            }, grid:{color:'rgba(255,255,255,0.05)'} }
+      }
+    }
+  });
+
+  // Sleep debt
+  if (avgSleep !== null) {
+    const days = S.period === 'week' ? 7 : 30;
+    const debt = ((settings.targetHours * 60) - avgSleep) * days / 60;
+    const el   = document.getElementById('debtVal');
+    if (debt > 0) {
+      el.className = 'debt-val debt-over';
+      el.textContent = `+${debt.toFixed(1)}時間`;
+      setText('debtSub', `${S.period==='week'?'1週間':'1ヶ月'}の累積睡眠負債があります`);
+      document.getElementById('debtProg').style.cssText = `width:${Math.min(100,(debt/(settings.targetHours*days*0.25))*100)}%;background:linear-gradient(90deg,#ef4444,#f59e0b)`;
+    } else {
+      el.className = 'debt-val debt-ok';
+      el.textContent = `${Math.abs(debt).toFixed(1)}時間以上`;
+      setText('debtSub', '十分な睡眠が取れています 🎉');
+      document.getElementById('debtProg').style.cssText = 'width:0%';
+    }
+  }
+
+  // Record list
+  const listDates = [...dates].reverse().slice(0, S.period === 'week' ? 7 : 14);
+  document.getElementById('recList').innerHTML = listDates.map(d => {
+    const r = records[d];
+    if (!r) return `<div class="rec-row"><span class="rec-date">${shortDate(d)}</span><span style="color:var(--text2);font-size:13px;">未記録</span><span></span></div>`;
+    const moodMap = {terrible:'😩',bad:'😕',okay:'😐',good:'😊',great:'🤩'};
+    return `<div class="rec-row">
+      <span class="rec-date">${shortDate(d)}</span>
+      <span class="rec-sleep">${r.sleepDuration ? fmtDur(r.sleepDuration,true) : '-'}</span>
+      <span class="rec-extra">${r.quality?'⭐'.repeat(r.quality):''} ${r.mood?moodMap[r.mood]:''}<br><span style="font-size:11px;color:var(--text2)">Sc:${r.score??'-'}</span></span>
+    </div>`;
+  }).join('');
+}
+
+function chartOpts({ yLabel='', yMax=12 } = {}) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend:{ labels:{ color:'#94a3b8', font:{size:11} } } },
+    scales: {
+      x: { ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(255,255,255,0.05)'} },
+      y: { min:0, max:yMax,
+           ticks:{color:'#94a3b8',font:{size:10}},
+           grid:{color:'rgba(255,255,255,0.05)'},
+           title:{display:!!yLabel, text:yLabel, color:'#94a3b8', font:{size:10}} }
+    }
+  };
+}
+
+// ──────────────────────────────────────────────
+// SCORE PAGE
+// ──────────────────────────────────────────────
+function refreshScorePage() {
+  const today = records[todayKey()];
+
+  // Score display
+  const numEl = document.getElementById('scoreNum');
+  if (today && today.score !== undefined) {
+    numEl.textContent = today.score;
+    if (today.score >= 80)      { numEl.className = 'score-num score-good'; setText('scoreLbl','素晴らしい睡眠です！'); }
+    else if (today.score >= 60) { numEl.className = 'score-num score-ok';   setText('scoreLbl','まずまずの睡眠です'); }
+    else                         { numEl.className = 'score-num score-bad';  setText('scoreLbl','改善の余地があります'); }
+
+    document.getElementById('scoreBreak').innerHTML = `
+      <div class="sum-row"><span class="sum-key">睡眠時間</span><span class="sum-val">${today.sleepDuration ? fmtDur(today.sleepDuration) : '未記録'}</span></div>
+      <div class="sum-row"><span class="sum-key">就寝時刻</span><span class="sum-val">${fmtTime(today.bedtime)}</span></div>
+      <div class="sum-row"><span class="sum-key">起床時刻</span><span class="sum-val">${fmtTime(today.waketime)}</span></div>
+      <div class="sum-row"><span class="sum-key">睡眠の質</span><span class="sum-val">${today.quality ? '⭐'.repeat(today.quality) : '-'}</span></div>
+      ${today.napTotal ? `<div class="sum-row"><span class="sum-key">昼寝</span><span class="sum-val">${fmtDur(today.napTotal)}</span></div>` : ''}
+      ${today.secondSleepTotal ? `<div class="sum-row"><span class="sum-key">二度寝</span><span class="sum-val">${fmtDur(today.secondSleepTotal)}</span></div>` : ''}
+      ${today.scoreNotes?.length ? `<div style="margin-top:12px;padding:10px 13px;background:rgba(239,68,68,0.1);border-radius:10px;font-size:13px;color:#fca5a5;line-height:1.6;">⚠️ ${today.scoreNotes.join('・')}</div>` : ''}
+    `;
+  } else {
+    numEl.textContent = '--';
+    numEl.className = 'score-num score-good';
+    setText('scoreLbl', '記録を保存するとスコアが表示されます');
+    document.getElementById('scoreBreak').innerHTML = '<div style="color:var(--text2);font-size:14px;padding:12px 0;text-align:center;">本日の記録がありません</div>';
+  }
+
+  // Streak
+  let streak = 0;
+  const cur  = new Date();
+  for (;;) {
+    const k = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
+    if (records[k]) { streak++; cur.setDate(cur.getDate()-1); }
+    else break;
+  }
+  setText('streakNum', streak);
+
+  // Quality chart
+  const dates   = getDateRange('week');
+  const qLabels = dates.map(d => { const p = d.split('-'); return `${+p[1]}/${+p[2]}`; });
+  const qData   = dates.map(d => records[d] ? records[d].quality : null);
+
+  if (chartQuality) chartQuality.destroy();
+  chartQuality = new Chart(document.getElementById('chartQuality').getContext('2d'), {
+    type: 'line',
+    data: { labels: qLabels, datasets:[{
+      label:'睡眠の質', data:qData,
+      borderColor:'rgba(245,158,11,0.9)', backgroundColor:'rgba(245,158,11,0.1)',
+      borderWidth:2, pointRadius:5, pointBackgroundColor:'rgba(245,158,11,0.9)',
+      fill:true, spanGaps:true, tension:0.4,
+    }]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(255,255,255,0.05)'} },
+        y:{ min:0, max:5, ticks:{ color:'#94a3b8', font:{size:10}, stepSize:1,
+              callback:v=>['','😩','😕','😐','😊','🤩'][v]||'' },
+            grid:{color:'rgba(255,255,255,0.05)'} }
+      }
+    }
+  });
+
+  // Tips
+  const tips = buildTips(today);
+  document.getElementById('tipsWrap').innerHTML = tips.map(t => `<div class="tip-item">${t}</div>`).join('');
+}
+
+function buildTips(rec) {
+  const t = [];
+  if (!rec) {
+    return [
+      '毎日記録をつけることで睡眠パターンを把握できます。まず記録を始めましょう！',
+      '理想的な睡眠時間は成人で7〜9時間です。年齢や生活スタイルにより個人差があります。',
+      '就寝1時間前にスマートフォンの使用を控えると、メラトニンが正常に分泌されます。',
+      '毎日同じ時間に起きると体内時計が整い、睡眠の質が向上します。',
+    ];
+  }
+  if (rec.sleepDuration && rec.sleepDuration < settings.targetHours*60 - 30)
+    t.push(`睡眠時間が目標（${settings.targetHours}時間）より不足しています。今夜は ${fmtTime(idealBedtimeFromWake())} 頃に就寝しましょう。`);
+  if (rec.sleepDuration && rec.sleepDuration > (settings.targetHours+2)*60)
+    t.push('睡眠が過剰な場合、かえって疲労感が増すことがあります。体を動かして日中の活動量を増やしましょう。');
+  if (rec.quality && rec.quality <= 2)
+    t.push('睡眠の質が低い場合は、寝室の温度（18〜22°C）・暗さ・静けさを見直してみましょう。');
+  if (rec.secondSleepTotal && rec.secondSleepTotal > 30)
+    t.push('二度寝が長い場合、夜の睡眠の質が低い可能性があります。就寝時刻を一定にすることが改善の近道です。');
+  if (rec.napTotal && rec.napTotal > 30)
+    t.push('昼寝は15〜20分が最適です。30分を超えると夜の睡眠に影響し逆効果になることがあります。');
+  if (rec.mood === 'terrible' || rec.mood === 'bad')
+    t.push('起床後に日光を浴びると体内時計がリセットされ、翌夜の眠りが改善されます。朝の10〜15分の散歩もおすすめです。');
+  const general = [
+    'カフェインの半減期は6〜7時間です。午後2時以降のコーヒー・紅茶は控えましょう。',
+    '就寝前の入浴（38〜40°C、15分程度）で深部体温が下がり、眠気が誘発されます。',
+    '適度な運動（就寝3時間前まで）は睡眠の質を高めます。特に有酸素運動が効果的です。',
+    '寝室はできるだけ暗くしましょう。遮光カーテンやアイマスクが効果的です。',
+  ];
+  while (t.length < 3) t.push(general[t.length % general.length]);
+  return t;
+}
+
+function idealBedtimeFromWake() {
+  const [h,m] = settings.targetWaketime.split(':').map(Number);
+  const d = new Date(); d.setHours(h,m,0,0);
+  d.setTime(d.getTime() - settings.targetHours * 3600000);
+  return fmtTime(d);
+}
+
+// ──────────────────────────────────────────────
+// SETTINGS INFO
+// ──────────────────────────────────────────────
+function refreshSettingsInfo() {
+  const keys  = Object.keys(records).sort();
+  const total = keys.reduce((s,k) => s + (records[k].sleepDuration || 0), 0);
+  setText('infoDays',  `${keys.length}日`);
+  setText('infoFirst', keys.length ? keys[0] : '-');
+  setText('infoTotal', keys.length ? fmtDur(total) : '-');
+}
+
+// ──────────────────────────────────────────────
+// EXPORT / IMPORT
+// ──────────────────────────────────────────────
+function exportCSV() {
+  const hdrs = ['日付','就寝時刻','起床時刻','睡眠時間(分)','昼寝(分)','二度寝(分)','睡眠の質','気分','スコア','メモ'];
+  const rows = Object.keys(records).sort().map(k => {
+    const r = records[k];
+    return [
+      k, fmtTime(r.bedtime), fmtTime(r.waketime),
+      r.sleepDuration ? Math.round(r.sleepDuration) : '',
+      r.napTotal || 0, r.secondSleepTotal || 0,
+      r.quality || '', r.mood || '', r.score || '',
+      (r.note||'').replace(/,/g,'，').replace(/\n/g,' '),
+    ].join(',');
+  });
+  dlFile('\uFEFF'+[hdrs.join(','),...rows].join('\n'), `sleep_${todayKey()}.csv`, 'text/csv;charset=utf-8;');
+  toast('CSVをダウンロードしました 📊');
+}
+
+function exportJSON() {
+  dlFile(JSON.stringify({ records, settings, exportedAt: new Date().toISOString() }, null, 2),
+    `sleep_backup_${todayKey()}.json`, 'application/json');
+  toast('バックアップを保存しました 💾');
+}
+
+function triggerImport() { document.getElementById('importFile').click(); }
+
+function handleImport(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = e => {
+    const data = tryParse(e.target.result);
+    if (!data?.records) { toast('無効なファイルです ❌', 'error'); return; }
+    if (confirm(`${Object.keys(data.records).length}日分のデータをインポートしますか？`)) {
+      records = data.records;
+      if (data.settings) settings = data.settings;
+      saveRecords();
+      loadSettings();
+      refreshSettingsInfo();
+      toast('インポートしました ✅');
+    }
+  };
+  fr.readAsText(file);
+  ev.target.value = '';
+}
+
+function resetAllData() {
+  if (!confirm('⚠️ 本当にすべてのデータを削除しますか？')) return;
+  if (!confirm('最終確認：全データが削除されます。よろしいですか？')) return;
+  records = {};
+  localStorage.removeItem(K_REC);
+  localStorage.removeItem(K_DRAFT);
+  refreshSettingsInfo();
+  toast('データを削除しました', 'warning');
+}
+
+function dlFile(content, name, type) {
+  const a   = document.createElement('a');
+  a.href    = URL.createObjectURL(new Blob([content], {type}));
+  a.download= name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ──────────────────────────────────────────────
+// NAV
+// ──────────────────────────────────────────────
+function showPage(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  btn.classList.add('active');
+
+  if (page === 'stats')    refreshStats();
+  if (page === 'score')    refreshScorePage();
+  if (page === 'settings') refreshSettingsInfo();
+}
+
+// ──────────────────────────────────────────────
+// TOAST
+// ──────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type === 'success' ? 'var(--green)' : type === 'warning' ? 'var(--gold)' : 'var(--red)';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ──────────────────────────────────────────────
+// START
+// ──────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
